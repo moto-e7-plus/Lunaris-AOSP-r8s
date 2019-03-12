@@ -2427,7 +2427,7 @@ EXPORT_SYMBOL(generic_file_read_iter);
 #ifdef CONFIG_MMU
 #define MMAP_LOTSAMISS  (100)
 #if CONFIG_MMAP_READAROUND_LIMIT == 0
-unsigned int mmap_readaround_limit = (VM_MAX_READAHEAD / 4); 		/* page */
+unsigned int mmap_readaround_limit = VM_READAHEAD_PAGES; 		/* page */
 #else
 unsigned int mmap_readaround_limit = CONFIG_MMAP_READAROUND_LIMIT;	/* page */
 #endif
