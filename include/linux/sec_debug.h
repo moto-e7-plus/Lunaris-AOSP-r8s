@@ -254,7 +254,7 @@ struct secdbg_member_type {
 	const struct secdbg_member_type sdbg_##key				\
 		__attribute__((__section__(".secdbg_mbtab." #key))) = {		\
 		.member = #key,							\
-		.size = FIELD_SIZEOF(struct st, mem),				\
+		.size = sizeof_field(struct st, mem),				\
 		.offset = offsetof(struct st, mem),				\
 	}
 #else
