@@ -74,11 +74,11 @@ int m2m1shot_dma_addr_map(struct device *dev,
 		iova = ion_iovmm_map(plane->attachment, 0,
 					plane->bytes_used, dir, prot);
 	} else {
-		down_read(&current->mm->mmap_sem);
+		mmap_read_lock(current->mm);
 		iova = exynos_iovmm_map_userptr(dev,
 				buf->buffer->plane[plane_idx].userptr,
 				plane->bytes_used, prot);
-		up_read(&current->mm->mmap_sem);
+		mmap_read_unlock(current->mm);
 	}
 
 	if (IS_ERR_VALUE(iova))
