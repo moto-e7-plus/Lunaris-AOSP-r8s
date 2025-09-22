@@ -240,8 +240,6 @@ source security/loadpin/Kconfig
 source security/yama/Kconfig
 source security/safesetid/Kconfig
 source security/lockdown/Kconfig
-source security/mstdrv/Kconfig
-source security/hdm/Kconfig
 
 source security/integrity/Kconfig
 

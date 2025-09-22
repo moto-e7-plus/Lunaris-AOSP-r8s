@@ -37,8 +37,6 @@ fw-external-$(CONFIG_SENSORS_VL53L5_C2) += range_sensor/vl53l5.bin \
 						range_sensor/generic_xtalk_shape_c2_01.bin \
 						range_sensor/generic_xtalk_shape_c2_02.bin
 
-fw-shipped-$(CONFIG_FIVE_TEE_DRIVER) += five/ffffffff000000000000000000000072.tlbin
-
 quiet_cmd_ihex  = IHEX    $@
       cmd_ihex  = $(OBJCOPY) -Iihex -Obinary $< $@
 
