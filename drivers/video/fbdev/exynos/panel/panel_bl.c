@@ -9,7 +9,6 @@
  */
 
 #include <linux/backlight.h>
-#include <linux/extremerom/brightness.h>
 #include "panel.h"
 #include "panel_bl.h"
 #include "copr.h"
@@ -874,7 +873,7 @@ int panel_update_brightness(struct panel_device *panel)
 	brightness = bd->props.brightness;
 
 #ifdef CONFIG_ONEUI7_WORKAROUND
-	brightness = get_fixed_brightness(brightness);
+	brightness *= 100;
 #endif
 
 #ifdef CONFIG_SUPPORT_MASK_LAYER
