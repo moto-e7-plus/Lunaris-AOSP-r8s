@@ -7507,7 +7507,7 @@ static void glove_mode(void *device_data)
 		snprintf(buff, sizeof(buff), "%s", "NG");
 		sec->cmd_state = SEC_CMD_STATUS_FAIL;
 	} else {
-		zt_set_optional_mode(info, DEF_OPTIONAL_MODE_SENSITIVE_BIT, sec->cmd_param[0]);
+		zt_set_optional_mode(info, DEF_OPTIONAL_MODE_SENSITIVE_BIT, !sec->cmd_param[0]);
 		snprintf(buff, sizeof(buff), "%s", "OK");
 		sec->cmd_state = SEC_CMD_STATUS_OK;
 	}
