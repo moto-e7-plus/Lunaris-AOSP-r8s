@@ -262,7 +262,7 @@ static int translate_app_process(const char **text, int cpu, struct task_struct 
     if (len > TRANSLATE_TEXT_SIZE)
         len = TRANSLATE_TEXT_SIZE;
 
-    down_read(&mm->mmap_sem);
+    mmap_read_lock(mm);
     while (len) {
         if (get_user_pages_remote(task, mm, addr, 1, 0, 1, &page, &page_vma) <= 0)
             goto outsem;
@@ -292,7 +292,7 @@ static int translate_app_process(const char **text, int cpu, struct task_struct 
         retval = 0;
 
 outsem:
-    up_read(&mm->mmap_sem);
+    mmap_read_unlock(mm);
 outmm:
     mmput(mm);
 out:

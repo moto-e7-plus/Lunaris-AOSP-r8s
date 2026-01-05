@@ -87,11 +87,11 @@ int jsqz_dma_addr_map(struct device *dev,
         dev_dbg(dev, "%s: getting dma addr of plane, userptr %lu bytes %zu, DMA_TO_DEVICE? %d\n"
             , __func__, buf->buffer->userptr
             , plane->bytes_used, dir == DMA_TO_DEVICE);
-        down_read(&current->mm->mmap_sem);
+        mmap_read_lock(current->mm);
         iova = exynos_iovmm_map_userptr(dev,
                         buf->buffer->userptr,
                         plane->bytes_used, prot);
-        up_read(&current->mm->mmap_sem);
+        mmap_read_unlock(current->mm);
     }
 
     if (IS_ERR_VALUE(iova))

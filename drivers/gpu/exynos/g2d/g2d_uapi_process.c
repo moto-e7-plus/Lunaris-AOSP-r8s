@@ -320,7 +320,7 @@ static int g2d_get_userptr(struct g2d_task *task,
 	if (!mm)
 		return ret;
 
-	down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 
 	vma = find_vma(mm, data->userptr);
 	if (!vma || (data->userptr < vma->vm_start)) {
@@ -387,7 +387,7 @@ static int g2d_get_userptr(struct g2d_task *task,
 		goto err_map;
 	}
 
-	up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 
 	buffer->userptr.addr = data->userptr;
 
@@ -410,7 +410,7 @@ err_vma:
 
 	buffer->userptr.vma = NULL;
 err_novma:
-	up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 
 	mmput(mm);
 
@@ -433,7 +433,7 @@ static int g2d_put_userptr(struct g2d_device *g2d_dev,
 	 * Calling to vm_ops->close() actually does not need mmap_sem to be
 	 * acquired but some device driver needs mmap_sem to be held.
 	 */
-	down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 
 	while (vma) {
 		struct vm_area_struct *tvma;
@@ -450,7 +450,7 @@ static int g2d_put_userptr(struct g2d_device *g2d_dev,
 		kfree(tvma);
 	}
 
-	up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 
 	mmput(mm);
 

@@ -1348,7 +1348,7 @@ int __sched __lock_page_or_retry(struct page *page, struct mm_struct *mm,
 		if (flags & FAULT_FLAG_RETRY_NOWAIT)
 			return 0;
 
-		up_read(&mm->mmap_sem);
+		mmap_read_unlock(mm);
 		if (flags & FAULT_FLAG_KILLABLE)
 			wait_on_page_locked_killable(page);
 		else
@@ -1360,7 +1360,7 @@ int __sched __lock_page_or_retry(struct page *page, struct mm_struct *mm,
 
 			ret = __lock_page_killable(page);
 			if (ret) {
-				up_read(&mm->mmap_sem);
+				mmap_read_unlock(mm);
 				return 0;
 			}
 		} else
@@ -2427,7 +2427,7 @@ EXPORT_SYMBOL(generic_file_read_iter);
 #ifdef CONFIG_MMU
 #define MMAP_LOTSAMISS  (100)
 #if CONFIG_MMAP_READAROUND_LIMIT == 0
-unsigned int mmap_readaround_limit = (VM_MAX_READAHEAD / 4); 		/* page */
+unsigned int mmap_readaround_limit = VM_READAHEAD_PAGES; 		/* page */
 #else
 unsigned int mmap_readaround_limit = CONFIG_MMAP_READAROUND_LIMIT;	/* page */
 #endif
@@ -2467,7 +2467,7 @@ static int lock_page_maybe_drop_mmap(struct vm_fault *vmf, struct page *page,
 			 * mmap_sem here and return 0 if we don't have a fpin.
 			 */
 			if (*fpin == NULL)
-				up_read(&vmf->vma->vm_mm->mmap_sem);
+				mmap_read_unlock(vmf->vma->vm_mm);
 			return 0;
 		}
 	} else
