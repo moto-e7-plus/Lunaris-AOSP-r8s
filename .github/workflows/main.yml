@@ -1,0 +1,187 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      KERNEL_SOURCE:
+        description: 'Kernel source URL'
+        required: true
+        default: https://github.com/moto-e7-plus/KSU
+      KERNEL_BRANCH:
+        description: 'Kernel branch'
+        required: true
+        default: 'KSU'
+      KERNEL_NAME:
+        description: 'Kernel/zip name'
+        required: true
+        default: 'guamp-kernel'
+      CONFIG_FILE:
+        description: 'Config file (You can put multiple configs separated by space)'
+        required: true
+        default: 'guamp_defconfig'
+      TOOLCHAIN_URL:
+        description: "Clone URL of your toolchain"
+        required: true
+        default: 'https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-15.0.0_r1/clang-r522817.tar.gz'
+      ANYKERNEL:
+        description: "Clone URL of your AnyKernel"
+        required: true
+        default: 'https://github.com/aosp-realm/AnyKernel3.git -b master'
+      KERNELSU:
+        description: "Clone URL of your kernelsu"
+        required: true
+        default: curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
+jobs:
+  Build_Kernel:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    defaults:
+      run:
+       shell: bash
+       working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Set-up environment
+        run: |
+          rm -rf ${{ github.workspace }}/*
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev libfl-dev
+          sudo apt-get install -y curl git ftp lftp wget libarchive-tools ccache python-is-python3
+          sudo apt-get install -y zip unzip tar gzip bzip2 rar unrar cpio jq
+          
+      - name: Cloning Kernel Source
+        run: |
+          git clone --single-branch --depth=1 --no-tags ${{ github.event.inputs.KERNEL_SOURCE }} -b ${{ github.event.inputs.KERNEL_BRANCH }} ${{ github.workspace }}/kernel
+          echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Set-up Toolchain
+        run: |
+         mkdir -p ${{ github.workspace }}/toolchain
+         if [[ "${{ github.event.inputs.TOOLCHAIN_URL }}" == *.tar.gz ]]; then
+             wget -O clang-toolchain.tar.gz "${{ github.event.inputs.TOOLCHAIN_URL }}"
+             tar -xzf clang-toolchain.tar.gz -C ${{ github.workspace }}/toolchain
+             rm -f clang-toolchain.tar.gz
+         else
+             git clone --single-branch --depth=1 --no-tags ${{ github.event.inputs.TOOLCHAIN_URL }} ${{ github.workspace }}/toolchain
+         fi
+
+      - name: Set environment variables
+        run: |
+          echo "OBJDIR=${{ github.workspace }}/kernel/out" >> $GITHUB_ENV
+          echo "ANYKERNEL=${{ github.workspace }}/anykernel" >> $GITHUB_ENV
+          echo "CLANG_DIR=${{ github.workspace }}/toolchain" >> $GITHUB_ENV
+          echo "KERNEL_NAME=${{ github.event.inputs.KERNEL_NAME }}" >> $GITHUB_ENV
+          echo "ZIP_NAME=${{ github.event.inputs.KERNEL_NAME }}-$(date +"%d%m%Y").zip" >> $GITHUB_ENV
+          echo "OUTPUT_DIR=${{ github.workspace }}/compiled" >> $GITHUB_ENV
+
+          KERNEL_SOURCE_URL="${{ github.event.inputs.KERNEL_SOURCE }}"
+          if [[ "${KERNEL_SOURCE_URL}" == *.git ]]; then
+            KERNEL_SOURCE_URL="${KERNEL_SOURCE_URL%.git}"
+          fi
+          echo "KERNEL_SOURCE_URL=${KERNEL_SOURCE_URL}" >> $GITHUB_ENV
+         
+      - name: Start Compilation
+        run: |
+         mkdir -p ${{ env.OUTPUT_DIR }}
+         cd ${{ github.workspace }}/kernel
+         
+         export PATH="${{ env.CLANG_DIR }}/bin:$PATH"
+         rm -r KernelSU-Next
+         curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
+         
+         make_defconfig() {
+            start=$(date +"%s")
+            make -s ARCH=arm64 O=${{ env.OBJDIR }} ${{ github.event.inputs.CONFIG_FILE }} -j$(nproc --all)
+         }
+         
+         compile() {       
+            make -j$(nproc --all) \
+            O=${{ env.OBJDIR }} \
+            ARCH=arm64 \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            AR=llvm-ar \
+            LLVM_NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            LD=ld.lld \
+            NM=llvm-nm \
+            LLVM=1 \
+            LLVM_IAS=1
+         }
+
+         make_defconfig
+         compile
+
+         end=$(date +"%s")
+         diff=$((end - start))
+         echo -e "BUILD COMPLETED IN ${diff} SECONDS"
+
+        continue-on-error: false
+         
+      - name: Checking for outputs
+        run: |
+         cd "${{ env.OBJDIR }}"
+         if [ -f out/arch/arm64/boot/Image ]; then
+         echo "=== Patching Kernel Image ==="
+         pushd out/arch/arm64/boot >/dev/null
+         curl -LO https://raw.githubusercontent.com/Numbersf/Action-Build/SukiSU-Ultra/patches/patch_linux && chmod +x patch_linux
+         ./patch_linux && [ -f oImage ] && mv oImage Image
+         popd >/dev/null
+          fi
+         
+         compiled_image="arch/arm64/boot/Image"
+         compiled_gz_image="arch/arm64/boot/Image.gz"
+         compiled_gz_dtb="arch/arm64/boot/Image.gz-dtb"
+         compiled_dtbo="arch/arm64/boot/dtbo.img"
+         qcom_dtb="arch/arm64/boot/dts/vendor/qcom"
+           
+         if [[ -f ${compiled_image} || -f ${compiled_gz_image} || -f ${compiled_gz_dtb} ]]; then
+              git clone -q ${{ github.event.inputs.ANYKERNEL }} "${{ env.ANYKERNEL }}"
+
+              if [[ -f "${compiled_image}" ]]; then
+                  cp -f "${compiled_image}" "${{ env.ANYKERNEL }}/Image" || true
+                  cp -f "${compiled_image}" "${{ env.OUTPUT_DIR }}/Image" || true
+              elif [[ -f "${compiled_gz_image}" ]]; then
+                  cp -f "${compiled_gz_image}" "${{ env.ANYKERNEL }}/Image.gz" || true
+                  cp -f "${compiled_gz_image}" "${{ env.OUTPUT_DIR }}/Image.gz" || true
+              elif [[ -f "${compiled_gz_dtb}" ]]; then
+                  cp -f "${compiled_gz_dtb}" "${{ env.ANYKERNEL }}/Image.gz-dtb" || true
+                  cp -f "${compiled_gz_dtb}" "${{ env.OUTPUT_DIR }}/Image.gz-dtb" || true
+              fi
+              
+              if [[ -f "${compiled_dtbo}" ]]; then
+                  cp -f "${compiled_dtbo}" "${{ env.ANYKERNEL }}/dtbo.img" || true
+                  cp -f "${compiled_dtbo}" "${{ env.OUTPUT_DIR }}/dtbo.img" || true
+              fi
+              
+              if ls ${qcom_dtb}/*.dtb 1> /dev/null 2>&1; then
+                  cp -f ${qcom_dtb}/*.dtb "${{ env.OUTPUT_DIR }}" || true
+              fi
+
+              cd "${{ env.ANYKERNEL }}"
+              zip -r AnyKernel.zip *
+              mv -- "AnyKernel.zip" "${{ env.ZIP_NAME }}"
+              mv -- "${{ env.ANYKERNEL }}/${{ env.ZIP_NAME }}" "${{ env.OUTPUT_DIR }}/${{ env.ZIP_NAME }}"
+              rm -rf "${{ env.ANYKERNEL }}"
+         else
+              echo "ERROR: Some output is missing!"
+              exit 1
+         fi
+         
+         zip_file=$(find ${{ env.OUTPUT_DIR }} -name '${{ github.event.inputs.KERNEL_NAME }}*.zip' -print -quit)
+         echo "ZIP_NAME=$(basename "$zip_file" .zip)" >> $GITHUB_ENV
+         echo "RELEASE_DATE=$(date +'%B %-d, %Y %H:%M')" >> $GITHUB_ENV
+
+      - name: Upload files to repository releases page
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ github.workspace }}/compiled/*
+          name: ${{ github.event.inputs.KERNEL_NAME }} // ${{ env.RELEASE_DATE }}
+          tag_name: ${{ github.run_id }}
+          body: |
+            [Kernel Source](${{ env.KERNEL_SOURCE_URL }}/tree/${{ github.event.inputs.KERNEL_BRANCH }})
+            [Latest Commit](${{ env.KERNEL_SOURCE_URL }}/commit/${{ env.COMMIT_ID }}) at the time of building.
+            
