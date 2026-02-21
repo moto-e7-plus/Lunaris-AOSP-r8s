@@ -6,19 +6,19 @@ on:
       KERNEL_SOURCE:
         description: 'Kernel source URL'
         required: true
-        default: https://github.com/moto-e7-plus/KSU
+        default: https://github.com/moto-e7-plus/Lunaris-AOSP-r8s
       KERNEL_BRANCH:
         description: 'Kernel branch'
         required: true
-        default: 'KSU'
+        default: 'main'
       KERNEL_NAME:
         description: 'Kernel/zip name'
         required: true
-        default: 'guamp-kernel'
+        default: 'r8s-kernel'
       CONFIG_FILE:
         description: 'Config file (You can put multiple configs separated by space)'
         required: true
-        default: 'guamp_defconfig'
+        default: 'r8s_defconfig'
       TOOLCHAIN_URL:
         description: "Clone URL of your toolchain"
         required: true
@@ -30,7 +30,7 @@ on:
       KERNELSU:
         description: "Clone URL of your kernelsu"
         required: true
-        default: curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
+        default: curl
 jobs:
   Build_Kernel:
     runs-on: ubuntu-latest
@@ -86,8 +86,6 @@ jobs:
          cd ${{ github.workspace }}/kernel
          
          export PATH="${{ env.CLANG_DIR }}/bin:$PATH"
-         rm -r KernelSU-Next
-         curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
          
          make_defconfig() {
             start=$(date +"%s")
